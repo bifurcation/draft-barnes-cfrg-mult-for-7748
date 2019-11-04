@@ -27,6 +27,7 @@ author:
     email: corettis@gmail.com
 
 informative:
+  NISTCurves: DOI.10.6028/NIST.FIPS.186-4
 
 --- abstract
 
@@ -37,7 +38,7 @@ private key.  Such updates are straightforward for older elliptic curves, but
 for X25519 and X448, the "clamping" prescribed for scalars requires some
 additional processing.  This document defines a multiplication procedure that
 can be used to update X25519 and X448 key pairs.  This algorithm can fail to
-produce a result, but only with negligible probability.  Failures can be 
+produce a result, but only with negligible probability.  Failures can be
 detected by the holder of the private key.
 
 --- middle
@@ -51,9 +52,10 @@ private key.  [[ TODO: Cite examples (e.g. HKD like BIP32, Tor Hidden Service
 Identity Blinding, MLS), security properties]]
 
 Such updates are straightforward with traditional elliptic curve groups, such as
-the NIST and Brainpool curve groups, or with the proposed Ristretto groups.  In 
-these groups, multiplication of points by scalars is a homomorphism with regard 
-to multiplication of scalars, so a key pair can be updated by multiplying the
+the NIST and Brainpool curve groups {{NISTCurves}}{{?RFC5639}}, or with the
+proposed Ristretto groups {{?I-D.hdevalence-cfrg-ristretto}}.  In these
+groups, multiplication of points by scalars is a homomorphism with regard to
+multiplication of scalars, so a key pair can be updated by multiplying the
 private key and the same "delta" scalar.  In other words, the following diagram
 commutes for all `d`, where `d\*` represents scalar multiplication by `d` and
 `\*G` represents multiplication of a scalar with the base point of the curve:
@@ -68,15 +70,15 @@ Scalars ------> Points
           *G
 ~~~
 
-The X25519 and X448 functions defined in RFC 7748, however, require scalars to
-be "clamped" before point multiplication is performed, which breaks this
-homomorphism.  In particular, scalars are passed through the `decodeScalar25519`
-or `decodeScalar448` functions, respectively, which force a high-order bit to be
-set.  Since this high-order bit is not guaranteed to be set in the product of
-two such numbers, the product of of two scalars may not represent a valid
-private key.  In fact, there are points on Curve25519/Curve448 which are not
-X25519/X448 public keys, because their discrete logs do not have the correct
-high bit set.
+The X25519 and X448 functions defined in RFC 7748 {{!RFC7748}}, however, require
+scalars to be "clamped" before point multiplication is performed, which breaks
+this homomorphism.  In particular, scalars are passed through the
+`decodeScalar25519` or `decodeScalar448` functions, respectively, which force a
+high-order bit to be set.  Since this high-order bit is not guaranteed to be set
+in the product of two such numbers, the product of of two scalars may not
+represent a valid private key.  In fact, there are points on Curve25519/Curve448
+which are not X25519/X448 public keys, because their discrete logs do not have
+the correct high bit set.
 
 Fortunately, X25519 and X448 use only one coordinate to represent curve
 points, which means they are insensitive to the sign of the point, so a scalar
@@ -162,7 +164,7 @@ values for X25519 and X448.
 
 In the case of X25519, the following values apply:
 
-```
+~~~
     b = 254
     n = 8 * (2^253 + x)
       = 2^255 + 8x
@@ -171,24 +173,24 @@ In the case of X25519, the following values apply:
 n - M = (2^255 + 8x) - 2^254
       = 2^254 + 8x
 n - N = 8x + 1
-```
+~~~
 
 Thus we have `n - N < M < n-M < N`, so the failure set `F` and the failure
 probability `|F|/n` are as follows:
 
-```
+~~~
     F = [0, n-N) U (N, n]
       = [0, 8x + 1) U (2^255 - 1, 2^255 + 8x]
 |F|/n = (2 * 8x) / (2^255 + 8x)
       < 2^130 / 2^255 (since x < 2^125)
       = 2^-125
-```
+~~~
 
 ## X448
 
 In the case of Curve448, the following values apply:
 
-```
+~~~
     b = 447
     n = 4 * (2^446 - x)
       = 2^448 - 4x
@@ -197,18 +199,18 @@ In the case of Curve448, the following values apply:
 n - M = (2^448 - 4x) - 2^447
       = 2^447 - 4x
 n - N = 1 - 4x
-```
+~~~
 
 Thus we have `n - N < 0 < n - M < M < N`, so the failure set `F` and the failure
 probability `|F|/n` are as follows:
 
-```
+~~~
     F = (n-M, M)
       = (2^447 - 4x, 2^447)
 |F|/n = (4x - 1) / (2^448 - 4x)
       < 2^226 / 2^448            (since x < 2^224)
       = 2^-222
-```
+~~~
 
 # Protocol Considerations
 
@@ -242,7 +244,7 @@ constant time.
 
 This document makes no request of IANA.
 
----back
+--- back
 
 # Test Vectors
 
@@ -286,6 +288,7 @@ pk1 a854ba19d7de3d73531501566b4e4e51ab263d743316525a86d6ecc2bff5036a
 ~~~
 
 Failed update:
+
 ~~~
 sk0 e09ec60ffb39ef974324161d749df7881124492d369906147ea3a64086c1e857
 pk0 984398c1dc572f13a20dd046901daf6716615e37d8c701ed75fb3871af14d374
@@ -350,6 +353,7 @@ pk1 eeb52f6eeb3d1785077dca6c763c0489c85f22fe5e96a82c54153ac3
 ~~~
 
 Failed update:
+
 ~~~
 sk0 48441950f8dd7ed277ed9727798b283906774ba0b3917fb21371c8f6
     2e164c3a069e224338d696a3dfe0c99b7277593949b8e555eb0766ed
