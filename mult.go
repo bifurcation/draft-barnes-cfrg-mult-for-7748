@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/hex"
+	"bytes"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -57,26 +57,35 @@ func (g Group) Fail(x *big.Int) bool {
 	return !g.Clamped(x) && !g.Clamped(big.NewInt(0).Sub(g.n, x))
 }
 
-func (g Group) Mult(d, sk *big.Int) *big.Int {
-	dc := g.Clamp(d)
-	skc := g.Clamp(sk)
+type multState struct {
+	dC  *big.Int
+	skC *big.Int
+	skP *big.Int
+	skN *big.Int
+	cP  uint
+}
 
-	skP := big.NewInt(0).Mul(dc, skc)
-	skP.Mod(skP, g.n)
+func (g Group) Mult(d, sk *big.Int) (*big.Int, *multState) {
+	s := &multState{}
+	s.dC = g.Clamp(d)
+	s.skC = g.Clamp(sk)
 
-	skN := big.NewInt(0).Sub(g.n, skP)
+	s.skP = big.NewInt(0).Mul(s.dC, s.skC)
+	s.skP.Mod(s.skP, g.n)
 
-	cP := skP.Bit(g.b)
-	cswap(1-cP, skP, skN)
-	return skP
+	s.skN = big.NewInt(0).Sub(g.n, s.skP)
+
+	s.cP = s.skP.Bit(g.b)
+	cswap(1-s.cP, s.skP, s.skN)
+	return s.skP, s
 }
 
 func (g Group) BadDelta(sk, lb, ub *big.Int) *big.Int {
-	skc := g.Clamp(sk)
+	skC := g.Clamp(sk)
 
 	ski := big.NewInt(0)
 	gcd := big.NewInt(0)
-	gcd.GCD(ski, nil, skc, g.n)
+	gcd.GCD(ski, nil, skC, g.n)
 	if gcd.Cmp(g.h) != 0 {
 		panic("Unexpected GCD")
 	}
@@ -116,7 +125,7 @@ var (
 	b25519    int   = 254
 	h25519    int64 = 8
 
-	x448x         = "8335dc163bb124b65129c96fde933d8d723a70aadc873d6d54a7bb0d"
+	x448x         = "8335dC163bb124b65129c96fde933d8d723a70aadC873d6d54a7bb0d"
 	x448, _       = big.NewInt(0).SetString(x448x, 16)
 	b448    int   = 447
 	h448    int64 = 4
@@ -167,18 +176,62 @@ func bn56le(bn *big.Int) [56]byte {
 	return out
 }
 
-func le2bn(le string) *big.Int {
-	b, _ := hex.DecodeString(le)
-	b = reverse(b)
-	return big.NewInt(0).SetBytes(b)
+func bn2le(bn *big.Int, size int) []byte {
+	le := reverse(bn.Bytes())
+	pad := bytes.Repeat([]byte{0}, size-len(le))
+	return append(le, pad...)
 }
 
-func logn(label string, n *big.Int) {
-	log(label, bn32le(n))
+func printTestCase25519(label string, sk0, d *big.Int) {
+	size := 32
+
+	sk1, s := g25519.Mult(d, sk0)
+
+	sk0x := bn32le(sk0)
+	sk1x := bn32le(sk1)
+
+	var pk0, pk1 [32]byte
+	curve25519.ScalarBaseMult(&pk0, &sk0x)
+	curve25519.ScalarBaseMult(&pk1, &sk1x)
+
+	fmt.Printf("~~~ 25519 %s ~~~\n", label)
+	fmt.Printf("sk0 %x\n", bn2le(sk0, size))
+	fmt.Printf("pk0 %x\n", pk0)
+	fmt.Printf("d   %x\n", bn2le(d, size))
+	fmt.Printf("dC  %x\n", bn2le(s.dC, size))
+	fmt.Printf("skC %x\n", bn2le(s.skC, size))
+	fmt.Printf("skP %x\n", bn2le(s.skP, size))
+	fmt.Printf("skN %x\n", bn2le(s.skN, size))
+	fmt.Printf("cP  %d\n", s.cP)
+	fmt.Printf("sk1 %x\n", bn2le(sk1, size))
+	fmt.Printf("pk1 %x\n", pk1)
+	fmt.Printf("\n")
 }
 
-func log(label string, n [32]byte) {
-	fmt.Printf("%-10s =[%x]\n", label, n)
+func printTestCase448(label string, sk0, d *big.Int) {
+	size := 56
+
+	sk1, s := g448.Mult(d, sk0)
+
+	sk0x := bn56le(sk0)
+	sk1x := bn56le(sk1)
+
+	var pk0, pk1 [56]byte
+	curve448.ScalarBaseMult(&pk0, &sk0x)
+	curve448.ScalarBaseMult(&pk1, &sk1x)
+
+	fmt.Printf("~~~ 448 %s ~~~\n", label)
+	fmt.Printf("sk0 %x\n", bn2le(sk0, size))
+	fmt.Printf("pk0 %x\n", pk0)
+	fmt.Printf("d   %x\n", bn2le(d, size))
+	fmt.Printf("dC  %x\n", bn2le(s.dC, size))
+	fmt.Printf("skC %x\n", bn2le(s.skC, size))
+	fmt.Printf("skP %x\n", bn2le(s.skP, size))
+	fmt.Printf("skN %x\n", bn2le(s.skN, size))
+	fmt.Printf("cP  %d\n", s.cP)
+	fmt.Printf("sk1 %x\n", bn2le(sk1, size))
+	fmt.Printf("pk1 %x\n", pk1)
+	fmt.Printf("\n")
 }
 
 func check25519() {
@@ -187,16 +240,17 @@ func check25519() {
 	// Check that homomorphism holds
 	a := random(big.NewInt(0), g.n)
 	d := random(big.NewInt(0), g.n)
+	da, _ := g.Mult(d, a)
 
 	ax := bn32le(a)
 	dx := bn32le(d)
-	dax := bn32le(g.Mult(d, a))
+	dax := bn32le(da)
 
 	var aG, d_aG, da_G [32]byte
 	curve25519.ScalarBaseMult(&aG, &ax)
 	curve25519.ScalarBaseMult(&da_G, &dax)
 	curve25519.ScalarMult(&d_aG, &dx, &aG)
-	fmt.Printf("homomorphic = %v\n", da_G == d_aG)
+	fmt.Printf("homomorphic  = %v\n", da_G == d_aG)
 	fmt.Printf("---\n")
 
 	// Check Failure sets
@@ -215,16 +269,33 @@ func check25519() {
 	fmt.Printf("fail(ub)     = %v\n", g.Fail(ub1))
 	fmt.Printf("---\n")
 
+	// Check bad delta generation
+	db := g.BadDelta(a, lb1, ub1)
+	dba, _ := g.Mult(d, a)
+	fmt.Printf("clamped(d)   = %v\n", g.Clamped(db))
+	fmt.Printf("fail(d*a)    = %v\n", g.Fail(dba))
+	fmt.Printf("\n")
+
 	// Generate a positive success case
+	dp := random(big.NewInt(0), g.n)
+	_, s := g.Mult(dp, a)
+	for s.cP == 0 {
+		dp = random(big.NewInt(0), g.n)
+		_, s = g.Mult(dp, a)
+	}
+	printTestCase25519("pos", dp, a)
 
 	// Generate a negative success case
+	dn := random(big.NewInt(0), g.n)
+	_, s = g.Mult(dn, a)
+	for s.cP == 1 {
+		dn = random(big.NewInt(0), g.n)
+		_, s = g.Mult(dn, a)
+	}
+	printTestCase25519("neg", dn, a)
 
-	// Check bad delta generation
-	d = g.BadDelta(a, lb1, ub1)
-	da := g.Mult(d, a)
-	fmt.Printf("clamped(d)   = %v\n", g.Clamped(d))
-	fmt.Printf("fail(d*a)    = %v\n", g.Fail(da))
-	fmt.Printf("\n")
+	// Generate a failure case
+	printTestCase25519("fail", db, a)
 }
 
 func check448() {
@@ -233,16 +304,17 @@ func check448() {
 	// Check that homomorphism holds
 	a := random(big.NewInt(0), g.n)
 	d := random(big.NewInt(0), g.n)
+	da, _ := g.Mult(d, a)
 
 	ax := bn56le(a)
 	dx := bn56le(d)
-	dax := bn56le(g.Mult(d, a))
+	dax := bn56le(da)
 
 	var aG, d_aG, da_G [56]byte
 	curve448.ScalarBaseMult(&aG, &ax)
 	curve448.ScalarBaseMult(&da_G, &dax)
 	curve448.ScalarMult(&d_aG, &dx, &aG)
-	fmt.Printf("homomorphic = %v\n", da_G == d_aG)
+	fmt.Printf("homomorphic  = %v\n", da_G == d_aG)
 	fmt.Printf("---\n")
 
 	// Check Failure sets
@@ -262,12 +334,32 @@ func check448() {
 	fmt.Printf("---\n")
 
 	// Check bad delta generation
-	a := random(big.NewInt(0), g.n)
-	d := g.BadDelta(a, lb, ub)
-	da := g.Mult(d, a)
-	fmt.Printf("clamped(d)   = %v\n", g.Clamped(d))
-	fmt.Printf("fail(d*a)    = %v\n", g.Fail(da))
+	db := g.BadDelta(a, lb, ub)
+	dba, _ := g.Mult(db, a)
+	fmt.Printf("clamped(d)   = %v\n", g.Clamped(db))
+	fmt.Printf("fail(d*a)    = %v\n", g.Fail(dba))
 	fmt.Printf("\n")
+
+	// Generate a positive success case
+	dp := random(big.NewInt(0), g.n)
+	_, s := g.Mult(dp, a)
+	for s.cP == 0 {
+		dp = random(big.NewInt(0), g.n)
+		_, s = g.Mult(dp, a)
+	}
+	printTestCase448("pos", dp, a)
+
+	// Generate a negative success case
+	dn := random(big.NewInt(0), g.n)
+	_, s = g.Mult(dn, a)
+	for s.cP == 1 {
+		dn = random(big.NewInt(0), g.n)
+		_, s = g.Mult(dn, a)
+	}
+	printTestCase448("neg", dn, a)
+
+	// Generate a failure case
+	printTestCase448("fail", db, a)
 }
 
 func main() {
