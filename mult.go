@@ -220,17 +220,21 @@ func printTestCase448(label string, sk0, d *big.Int) {
 	curve448.ScalarBaseMult(&pk0, &sk0x)
 	curve448.ScalarBaseMult(&pk1, &sk1x)
 
+	print56 := func(label string, val []byte) {
+		fmt.Printf("%-3s %x\n    %x\n", label, val[:28], val[28:])
+	}
+
 	fmt.Printf("~~~ 448 %s ~~~\n", label)
-	fmt.Printf("sk0 %x\n", bn2le(sk0, size))
-	fmt.Printf("pk0 %x\n", pk0)
-	fmt.Printf("d   %x\n", bn2le(d, size))
-	fmt.Printf("dC  %x\n", bn2le(s.dC, size))
-	fmt.Printf("skC %x\n", bn2le(s.skC, size))
-	fmt.Printf("skP %x\n", bn2le(s.skP, size))
-	fmt.Printf("skN %x\n", bn2le(s.skN, size))
+	print56("sk0", bn2le(sk0, size))
+	print56("pk0", pk0[:])
+	print56("d", bn2le(d, size))
+	print56("dC", bn2le(s.dC, size))
+	print56("skC", bn2le(s.skC, size))
+	print56("skP", bn2le(s.skP, size))
+	print56("skN", bn2le(s.skN, size))
 	fmt.Printf("cP  %d\n", s.cP)
-	fmt.Printf("sk1 %x\n", bn2le(sk1, size))
-	fmt.Printf("pk1 %x\n", pk1)
+	print56("sk1", bn2le(sk1, size))
+	print56("pk1", pk1[:])
 	fmt.Printf("\n")
 }
 
