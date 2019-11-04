@@ -30,15 +30,15 @@ informative:
 
 --- abstract
 
-In some contexts it is useful for holders of the private and public parts an
+In some contexts it is useful for holders of the private and public parts of an
 elliptic curve key pair to be able to independently apply an updates to those
-values, such that the resulting updated public key corresponds to the updated
+values, such that the 	resulting updated public key corresponds to the updated
 private key.  Such updates are straightforward for older elliptic curves, but
-for Curve25519 and Curve448, the "clamping" prescribed for scalars requires some
+for X25519 and X448, the "clamping" prescribed for scalars requires some
 additional processing.  This document defines a multiplication procedure that
-can be used to update Curve25519 and Curve448 key pairs.  This algorithm can
-fail to produce a result, but only with negligible probability.  Failures can
-be detected by the holder of the private key.
+can be used to update X25519 and X448 key pairs.  This algorithm can fail to
+produce a result, but only with negligible probability.  Failures can be 
+detected by the holder of the private key.
 
 --- middle
 
@@ -47,12 +47,13 @@ be detected by the holder of the private key.
 In some contexts it is useful for holders of the private and public parts of an
 elliptic curve key pair to be able to independently apply an updates to those
 values, such that the resulting updated public key corresponds to the updated
-private key.  [[ TODO: Cite examples, security properties ]]
+private key.  [[ TODO: Cite examples (e.g. HKD like BIP32, Tor Hidden Service
+Identity Blinding, MLS), security properties]]
 
-Such updates are straightforward with traditional elliptic curves, such as the
-NIST and Brainpool curves, or with the proposed Ristretto curve.  In these
-curves, multiplication of points by scalars is a homomorphism with regard to
-multiplication of scalars, so a key pair can be updated by multiplying the
+Such updates are straightforward with traditional elliptic curve groups, such as
+the NIST and Brainpool curve groups, or with the proposed Ristretto groups.  In 
+these groups, multiplication of points by scalars is a homomorphism with regard 
+to multiplication of scalars, so a key pair can be updated by multiplying the
 private key and the same "delta" scalar.  In other words, the following diagram
 commutes for all `d`, where `d\*` represents scalar multiplication by `d` and
 `\*G` represents multiplication of a scalar with the base point of the curve:
@@ -67,17 +68,17 @@ Scalars ------> Points
           *G
 ~~~
 
-The Curve25519 and Curve448 functions defined in RFC 7748, however, require
-scalars to be "clamped" before point multiplication is performed, which breaks
-this homomorphism.  In particular, scalars are passed through the
-`decodeScalar25519` or `decodeScalar448` functions, respectively, which force
-a high-order bit to be set.  Since this high-order bit is not guaranteed to be
-set in the product of two such numbers, the product of of two scalars may not
-represent a valid private key.  In fact, there are valid X25519/X448 curve
-points which cannot be Curve25519/Curve448 public keys, because their discrete
-logs do not have the correct high bit set.
+The X25519 and X448 functions defined in RFC 7748, however, require scalars to
+be "clamped" before point multiplication is performed, which breaks this
+homomorphism.  In particular, scalars are passed through the `decodeScalar25519`
+or `decodeScalar448` functions, respectively, which force a high-order bit to be
+set.  Since this high-order bit is not guaranteed to be set in the product of
+two such numbers, the product of of two scalars may not represent a valid
+private key.  In fact, there are points on Curve25519/Curve448 which are not
+X25519/X448 public keys, because their discrete logs do not have the correct
+high bit set.
 
-Fortunately, Curve25519 and Curve448 use only one coordinate to represent curve
+Fortunately, X25519 and X448 use only one coordinate to represent curve
 points, which means they are insensitive to the sign of the point, so a scalar
 private key and its negative result in the same public key.  And if a given
 scalar does not have the correct bit set, then its negative modulo the curve
@@ -91,19 +92,19 @@ failure cases and the resulting probabilities of failure, and discusses how
 failures can be detected.
 
 
-# Updating Curve25519 / Curve448 key pairs
+# Updating X25519 / X448 key pairs
 
-The following procedures allow for updating Curve25519 / Curve448 public keys
-and private keys in constant time.  The values `sk` and `pk` represent the
-private and public keys of the key pair, and the value `d` represents a "delta"
-scalar being applied.  All arithmetic operations are performed modulo the order
-`n` of the relevant curve:
+The following procedures allow for updating X25519/X448 public keys and private
+keys in constant time.  The values `sk` and `pk` represent the private and
+public keys of the key pair, and the value `d` represents a "delta" scalar being
+applied.  All arithmetic operations are performed modulo the order `n` of the
+relevant curve:
 
-* Curve25519:
+* X25519:
   * `x = 0x14def9dea2f79cd65812631a5cf5d3ed`
   * `n = 8 * (2^253 + x)`
   * `b = 254`
-* Curve448:
+* X448:
   * `x = 0x8335dc163bb124b65129c96fde933d8d723a70aadc873d6d54a7bb0d`
   * `n = 4 * (2^446 - x)`
   * `b = 447`
@@ -140,7 +141,7 @@ update has failed, and the delta `d` cannot be used with this key pair.
 An update of a private key `sk` by a delta `d` fails if and only if neither
 `d*sk` or `n - d*sk` has the relevant bit set.  In this section, we will assume
 that for uniform `d`, this product `c = d*sk` is uniformly distributed among
-scalars modulo n.  From this assumption, we can describe the set of values `c`
+scalars modulo `n`.  From this assumption, we can describe the set of values `c`
 for which updates fail, and thus estimate the probability that an update will
 fail.
 
@@ -155,11 +156,11 @@ high bit set, i.e., if they are not in the range `[M, N]`, where `M = 2^b` and
 
 So the probability of failures is proportional to the size of the set where this
 conditions applies.  In the following subsections, we will calculate these
-values for Curve25519 and Curve448.
+values for X25519 and X448.
 
-## Curve25519
+## X25519
 
-In the case of Curve25519, the following values apply:
+In the case of X25519, the following values apply:
 
 ```
     b = 254
@@ -183,7 +184,7 @@ probability `|F|/n` are as follows:
       = 2^-125
 ```
 
-## Curve448
+## X448
 
 In the case of Curve448, the following values apply:
 
@@ -252,7 +253,7 @@ verify that the following relations hold:
 * pk1 = updatePub(d, pk0)
 * pk1 = CurveN(sk1)
 
-## Curve25519
+## X25519
 
 Successful update (no swap):
 
@@ -286,7 +287,7 @@ pk1  dc9ed70b0e5010f2c7a2b0cdb8eef0fb47afa0aad2da96f9f2b9db238728e90c
 
 [[ TODO: Failure case ]]
 
-## Curve448
+## X448
 
 [[ TODO ]]
 
