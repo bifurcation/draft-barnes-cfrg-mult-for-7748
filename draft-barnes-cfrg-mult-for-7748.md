@@ -44,7 +44,7 @@ be detected by the holder of the private key.
 
 # Introduction
 
-In some contexts it is useful for holders of the private and public parts an
+In some contexts it is useful for holders of the private and public parts of an
 elliptic curve key pair to be able to independently apply an updates to those
 values, such that the resulting updated public key corresponds to the updated
 private key.  [[ TODO: Cite examples, security properties ]]
